@@ -88,7 +88,7 @@ This Phase 0 design is a first pass and will be refined through ER diagram creat
 
 ## 7. Preliminary Entities, Attributes, and Relationships
 
-> This section is intentionally a first draft and will be refined later.
+> This section is being intentionally left as a first draft and will be refined later.
 
 ---
 
@@ -207,3 +207,4 @@ This Phase 0 design is a first pass and will be refined through ER diagram creat
 ## 9. Conclusion
 
 This proposal outlines a relational database design for a Reddit-style discussion platform with sufficient complexity to support ER/EER modeling and relational schema mapping. The system includes hierarchical comment relationships, many-to-many interactions (membership and voting), and governance/moderation features that reflect real-world requirements. Future phases will refine constraints (min/max participation), enforce referential integrity, and translate the conceptual model into SQL tables.
+
