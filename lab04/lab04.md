@@ -208,3 +208,236 @@ This Phase 0 design is a first pass and will be refined through ER diagram creat
 
 This proposal outlines a relational database design for a Reddit-style discussion platform with sufficient complexity to support ER/EER modeling and relational schema mapping. The system includes hierarchical comment relationships, many-to-many interactions (membership and voting), and governance/moderation features that reflect real-world requirements. Future phases will refine constraints (min/max participation), enforce referential integrity, and translate the conceptual model into SQL tables.
 
+## 10. Phase 1: Entity-Relationship Diagram and Detailed Design
+
+### 10.1 Overview
+
+Phase 1 expands the preliminary proposal into a fully developed Entity-Relationship (ER) model representing the complete scope of the Reddit-style social content platform.
+
+The ER diagram models all required entities, attributes, relationships, constraints, and cardinality rules necessary to support:
+
+- User accounts
+- Communities (subreddits)
+- Posts
+- Threaded discussions
+- Voting systems
+- Reporting mechanisms
+- Moderation logging
+- Subreddit rules and bans
+- Flairs and tagging
+
+The design emphasizes:
+
+- Referential integrity
+- Logical normalization
+- Real-world behavioral constraints
+- Scalability and extensibility
+
+The final ER diagram contains **16 entities**, satisfying the project requirement of 10–20 entities and demonstrating sufficient structural complexity for a full-scale platform model.
+
+---
+
+### 10.2 Entity Justification
+
+Below is the rationale for each entity included within the model.
+
+#### Core Identity Entities
+
+**User**  
+Represents registered platform accounts. Users can create posts and comments, vote on content, report violations, join communities, and potentially serve as moderators.
+
+**Subreddit**  
+Represents communities within the platform. Each post belongs to exactly one subreddit. Rules, moderation actions, bans, and flairs are scoped at the subreddit level.
+
+---
+
+#### Associative Entities
+
+**Membership**  
+Resolves the many-to-many relationship between User and Subreddit. Stores:
+- Join date
+- Role (Member or Moderator)
+- Active status  
+
+Constraint: `Unique(UserID, SubredditID)` ensures a user cannot join the same subreddit multiple times simultaneously.
+
+**PostTag**  
+Resolves the many-to-many relationship between Post and Tag.  
+Constraint: `Unique(PostID, TagID)` prevents duplicate tag assignments.
+
+**PostFlairAssignment**  
+Associates a post with at most one flair.  
+Constraint: `Unique(PostID)` ensures a post cannot have multiple flairs assigned simultaneously.
+
+---
+
+#### Content Entities
+
+**Post**  
+Represents primary user-submitted content.  
+Each post:
+- Has exactly one author
+- Belongs to exactly one subreddit
+- May contain text or a URL (depending on post type)
+- May be locked or removed
+
+**Comment**  
+Represents threaded replies to posts.  
+Each comment:
+- Belongs to exactly one post
+- Has exactly one author
+- May optionally reference a parent comment (self-referencing relationship)
+
+The self-referencing `ParentCommentID` models hierarchical discussion threads.
+
+---
+
+#### Interaction Entities
+
+**PostVote**  
+Represents votes cast on posts.  
+Constraint: `Unique(UserID, PostID)` ensures one vote per user per post.
+
+**CommentVote**  
+Represents votes cast on comments.  
+Constraint: `Unique(UserID, CommentID)` ensures one vote per user per comment.
+
+Votes are separated into two entities to preserve referential integrity and avoid polymorphic foreign keys.
+
+**PostReport**  
+Represents user-submitted reports against posts.  
+Stores reporting user, associated rule (optional), status, and timestamp.
+
+**CommentReport**  
+Represents reports against comments with similar structure to PostReport.
+
+---
+
+#### Governance Entities
+
+**SubredditRule**  
+Defines rules specific to a subreddit. Reports may optionally reference a violated rule.
+
+**ModerationAction**  
+Logs moderator actions such as:
+- Removing posts
+- Removing comments
+- Locking content
+- Banning users
+
+The entity optionally references:
+- A related post
+- A related comment
+- A targeted user
+
+Only one target reference is expected per moderation action (enforced at the application level).
+
+**SubredditBan**  
+Tracks users banned within a specific subreddit.  
+Stores:
+- Issuing moderator
+- Reason
+- Start date
+- Optional end date
+- Active status
+
+Bans are modeled separately from moderation actions to track duration and status.
+
+---
+
+#### Categorization Entities
+
+**Flair**  
+Represents subreddit-specific labels applied to posts.
+
+**Tag**  
+Represents global topic labels that can be reused across posts.
+
+---
+
+### 10.3 Relationship and Cardinality Design
+
+Major relationships include:
+
+- A **User** can create many **Posts**; each Post has exactly one User.
+- A **Subreddit** contains many **Posts**; each Post belongs to exactly one Subreddit.
+- A **Post** contains many **Comments**; each Comment belongs to exactly one Post.
+- A **Comment** may reference one parent Comment (optional).
+- Users and Subreddits have a many-to-many relationship resolved through **Membership**.
+- Votes and Reports are modeled as associative entities to enforce one interaction per user per target.
+- **ModerationAction** links moderators to actions performed within a subreddit and optionally targets posts, comments, or users.
+- **SubredditBan** models banning as a distinct relationship with time bounds.
+- Tags and Flairs support structured content categorization.
+
+All foreign keys are explicitly defined and participation cardinalities reflect realistic platform behavior.
+
+---
+
+### 10.4 Key Constraints and Integrity Rules
+
+The model enforces the following constraints:
+
+- `Unique(UserID, SubredditID)` in Membership.
+- `Unique(UserID, PostID)` in PostVote.
+- `Unique(UserID, CommentID)` in CommentVote.
+- `Unique(PostID)` in PostFlairAssignment.
+- `Unique(PostID, TagID)` in PostTag.
+- `ParentCommentID` is nullable for top-level comments.
+- ModerationAction contains nullable foreign keys for different target types, with application-level logic ensuring only one is populated.
+
+These constraints:
+
+- Prevent duplicate interactions
+- Maintain relational integrity
+- Reflect real-world platform rules
+
+---
+
+### 10.5 Major Design Decisions
+
+#### Separation of Vote and Report Entities
+
+Instead of using a polymorphic `TargetType/TargetID` design, PostVote and CommentVote are separated. This preserves strict foreign key integrity and simplifies translation into a relational schema.
+
+#### Centralized ModerationAction Log
+
+All moderator actions are stored in a single entity rather than distributed across multiple tables. This improves auditing and accountability.
+
+#### Explicit Ban Entity
+
+Bans are modeled separately from moderation actions to allow tracking of duration and active status.
+
+#### Self-Referencing Comment Structure
+
+Threaded discussions are implemented using a self-referencing foreign key, a common relational modeling strategy for hierarchical data.
+
+#### Subreddit-Scoped Flairs
+
+Flairs are tied to subreddits rather than globally to reflect community-specific labeling systems.
+
+---
+
+### 10.6 Future Considerations
+
+Potential future enhancements include:
+
+- Introducing a Content supertype for Posts and Comments.
+- Adding soft-delete tracking metadata.
+- Tracking moderator role history.
+- Expanding audit logging capabilities.
+- Implementing karma caching for performance optimization.
+
+---
+
+### 10.7 Summary
+
+The Phase 1 ER diagram represents a complete and normalized conceptual model of the Reddit-style social content platform.
+
+The design:
+
+- Satisfies project complexity requirements
+- Enforces relational integrity
+- Reflects realistic platform behavior
+- Provides a scalable foundation
+
+This ER model establishes a strong foundation for conversion into a relational schema and SQL implementation in subsequent phases.
