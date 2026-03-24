@@ -441,3 +441,216 @@ The design:
 - Provides a scalable foundation
 
 This ER model establishes a strong foundation for conversion into a relational schema and SQL implementation in subsequent phases.
+
+## 11. Phase 2: Use Cases and Query Requirements
+
+### 11.1 Overview
+
+Phase 2 extends the database design by identifying realistic use cases and the types of queries the Reddit-style social content platform must support.
+
+The goal of this phase is to make sure the ER design is not only structurally correct, but also useful for the types of interactions that real users, moderators, and administrators would perform on the platform.
+
+This phase focuses on:
+- realistic application scenarios,
+- the information each scenario needs,
+- pseudo-SQL query examples,
+- and design review based on those requirements.
+
+The use cases below were selected because they represent common and important platform behaviors such as content browsing, moderation, community participation, discussion tracking, and reporting.
+
+---
+
+### 11.2 Identified Use Cases and Query Examples
+
+#### Use Case 1: Retrieve all posts in a specific subreddit
+
+**Why this matters:**  
+One of the most basic and important platform actions is loading the posts for a specific community. A user visiting a subreddit should be able to see the posts that belong to that subreddit, usually sorted by creation date or some ranking rule.
+
+**Query Objective:**  
+Retrieve post information for a selected subreddit.
+
+**Assumptions:**  
+- A valid `SubredditID` is provided.
+- Removed posts may be excluded if desired.
+- Results may be sorted by newest first.
+
+**Expected Output:**  
+A list of posts including title, author, creation date, and post type.
+
+**Pseudo-SQL:**
+```sql
+SELECT PostID, Title, AuthorUserID, CreatedAt, PostType
+FROM Post
+WHERE SubredditID = [selected_subreddit]
+  AND IsRemoved = FALSE
+ORDER BY CreatedAt DESC;
+```
+
+#### Use Case 2: Display all comments for a specific post
+
+**Why this matters:**  
+A Reddit-style system depends heavily on threaded discussions. Users need to view all comments belonging to a post, including replies.
+
+**Query Objective:**  
+Retrieve all comments for a selected post.
+
+**Assumptions:**  
+- Top-level comments have `ParentCommentID = NULL`.
+- Replies reference their parent comment.
+
+**Expected Output:**  
+A list of comments including hierarchy structure.
+
+**Pseudo-SQL:**
+```sql
+SELECT CommentID, AuthorUserID, BodyText, CreatedAt, ParentCommentID
+FROM Comment
+WHERE PostID = [selected_post]
+ORDER BY CreatedAt ASC;
+```
+
+#### Use Case 3: Show all communities joined by a user
+
+**Why this matters:**  
+Users need to view which subreddits they are part of for navigation and profile display.
+
+**Query Objective:**  
+Retrieve all active memberships for a user.
+
+**Assumptions:**  
+- Only active memberships are shown.
+
+**Expected Output:**  
+List of subreddits with role and join date.
+
+**Pseudo-SQL:**
+```sql
+SELECT SubredditID, Role, JoinedAt
+FROM Membership
+WHERE UserID = [selected_user]
+  AND IsActive = TRUE;
+```
+
+---
+
+#### Use Case 4: Find all open reports in a subreddit
+
+**Why this matters:**  
+Moderators need to quickly identify unresolved reports so they can review inappropriate content and enforce subreddit rules.
+
+**Query Objective:**  
+Retrieve all reports that are still open within a subreddit.
+
+**Assumptions:**  
+- Reports exist for both posts and comments.
+- Only reports with status `Open` are needed.
+
+**Expected Output:**  
+A list of reports including report ID, reporter, reason, and timestamp.
+
+**Pseudo-SQL:**
+```sql
+SELECT PostReportID, ReporterUserID, PostID, ReasonText, Status, CreatedAt
+FROM PostReport
+WHERE Status = 'Open'
+  AND PostID IN (
+      SELECT PostID
+      FROM Post
+      WHERE SubredditID = [selected_subreddit]
+  );
+```
+---
+
+#### Use Case 5: List moderation actions by a moderator
+
+**Why this matters:**  
+Moderation logs are important for accountability and tracking moderator behavior across a subreddit.
+
+**Query Objective:**  
+Retrieve all moderation actions performed by a specific moderator.
+
+**Assumptions:**  
+- A valid moderator user ID is provided.
+
+**Expected Output:**  
+List of moderation actions including type, reason, and timestamp.
+
+**Pseudo-SQL:**
+```sql
+SELECT ActionID, SubredditID, ActionType, ActionReason, CreatedAt,
+       RelatedPostID, RelatedCommentID, TargetUserID
+FROM ModerationAction
+WHERE ModeratorUserID = [selected_moderator]
+ORDER BY CreatedAt DESC;
+```
+---
+
+#### Use Case 6: Calculate the score of a post based on votes
+
+**Why this matters:**  
+Post ranking depends on vote scores, which determine visibility and popularity on the platform.
+
+**Query Objective:**  
+Calculate the total score of a post.
+
+**Assumptions:**  
+- `VoteValue` is +1 (upvote) or -1 (downvote).
+- Each user can vote only once per post.
+
+**Expected Output:**  
+A numeric score representing the total votes for the post.
+
+**Pseudo-SQL:**
+```sql
+SELECT PostID, SUM(VoteValue) AS Score
+FROM PostVote
+WHERE PostID = [selected_post]
+GROUP BY PostID;
+```
+---
+
+#### Use Case 7: Identify most active users in a subreddit
+
+**Why this matters:**  
+The platform may want to highlight top contributors or help moderators identify highly active users within a community.
+
+**Query Objective:**  
+Determine which users contribute the most content in a subreddit.
+
+**Assumptions:**  
+- Activity is measured by number of posts and/or comments.
+
+**Expected Output:**  
+A ranked list of users based on activity level.
+
+**Pseudo-SQL:**
+```sql
+SELECT AuthorUserID, COUNT(*) AS TotalPosts
+FROM Post
+WHERE SubredditID = [selected_subreddit]
+GROUP BY AuthorUserID
+ORDER BY TotalPosts DESC;
+```
+---
+
+#### Use Case 8: Retrieve all tags assigned to a post
+
+**Why this matters:**  
+Tags help categorize content and improve search, filtering, and organization within the platform.
+
+**Query Objective:**  
+Retrieve all tags associated with a specific post.
+
+**Assumptions:**  
+- A post can have multiple tags.
+
+**Expected Output:**  
+A list of tags assigned to the post.
+
+**Pseudo-SQL:**
+```sql
+SELECT TagID
+FROM PostTag
+WHERE PostID = [selected_post];
+```
