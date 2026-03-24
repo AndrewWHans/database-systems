@@ -655,6 +655,8 @@ FROM PostTag
 WHERE PostID = [selected_post];
 ```
 
+---
+
 ### 11.3 Summary
 
 The use cases demonstrate that the database design supports real-world platform behavior including content browsing, discussion threads, moderation, and user interaction.
