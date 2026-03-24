@@ -654,3 +654,8 @@ SELECT TagID
 FROM PostTag
 WHERE PostID = [selected_post];
 ```
+
+### 11.3 Summary
+
+The use cases demonstrate that the database design supports real-world platform behavior including content browsing, discussion threads, moderation, and user interaction.
+The ER/EER model aligns well with the query requirements and does not require major structural changes.
