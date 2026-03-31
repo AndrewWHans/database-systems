@@ -764,3 +764,10 @@ If this database were deployed in a real-world system, monitoring and validation
 This highlights how database design is not just about structure, but also about maintaining performance and reliability over time.
 
 ---
+
+### 12.6 Follow-Up Questions
+
+- How do large-scale platforms optimize complex queries like threaded comments at scale?  
+- What strategies are used to handle extremely high write loads (e.g., votes, comments)?  
+- How often should database performance metrics be reviewed in production?  
+- What are best practices for testing schema changes without impacting live systems?  
