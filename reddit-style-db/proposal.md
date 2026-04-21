@@ -821,7 +821,7 @@ LIMIT 10;
 #### Use Case 10: Find users who are active members of multiple subreddits but have never made a post
 
 **Why this matters:**
-Lurkers — users who join communities but never contribute content — represent a large but often overlooked segment of the user base. Understanding their scale helps product teams design engagement features (e.g., prompts to post, onboarding nudges) to convert passive members into contributors.
+Lurkers are the users who woulld join communities but never contribute content: representing a large but often overlooked segment of the user base. Understanding their scale helps product teams design engagement features (e.g., prompts to post, onboarding nudges) to convert passive members into contributors.
 
 **Strategic Insight:**
 This query gives the analyst a count and list of users who consume but never create. It directly informs growth and engagement strategy: if the lurker-to-contributor ratio is high, the platform may need to lower barriers to posting.
@@ -942,7 +942,7 @@ ORDER BY m.SubredditID, ResolutionRatePct DESC;
 #### Use Case 13: Detect users whose karma score has grown the most in the last 30 days
 
 **Why this matters:**
-Sudden spikes in karma can signal a breakout user — someone who has recently posted viral content and is becoming a high-value community contributor. It can also flag suspicious activity, such as vote manipulation or coordinated upvoting, which is worth further investigation.
+Sudden spikes in karma can signal a breakout user, which is someone who has recently posted viral content and is becoming a high-value community contributor. It can also flag suspicious activity, such as vote manipulation or coordinated upvoting, which is worth further investigation.
 
 **Strategic Insight:**
 This query uses aggregated vote data filtered by recency to compute karma growth per user. It surfaces both opportunity (new rising contributors to spotlight) and risk (abnormal activity patterns). Growth analytics like this are standard in any platform's data analyst toolkit.
