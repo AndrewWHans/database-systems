@@ -771,3 +771,225 @@ This highlights how database design is not just about structure, but also about 
 - What strategies are used to handle extremely high write loads (e.g., votes, comments)?  
 - How often should database performance metrics be reviewed in production?  
 - What are best practices for testing schema changes without impacting live systems?  
+
+## 13. Phase 3: SQL Queries – Aggregations, Joins, and Nested Queries
+
+### 13.1 Overview
+
+Phase 3 expands the query suite from a data analyst perspective. As a new analyst onboarded to this platform's database, the goal is to surface actionable insights about user behavior, community health, content performance, and moderation patterns. The five queries below use aggregations, multi-table joins, and nested subqueries to answer questions that a platform team would realistically care about.
+
+---
+
+### 13.2 Analyst Use Cases
+
+---
+
+#### Use Case 9: Identify subreddits with the highest average post score
+
+**Why this matters:**
+A data analyst evaluating platform health would want to know which communities consistently produce high-quality, well-received content. Subreddits with strong average post scores may be candidates for featuring or promotion, while those with low averages may need moderation attention.
+
+**Strategic Insight:**
+This query helps product and community teams rank communities by engagement quality rather than just volume. It answers the question: "Where is content actually resonating with users?"
+
+**Query Objective:**
+Calculate the average vote score per post, grouped by subreddit, and return the top communities by average score.
+
+**Assumptions:**
+- `VoteValue` is +1 (upvote) or -1 (downvote) in `PostVote`.
+- Only non-removed posts are considered.
+
+**Expected Output:**
+A ranked list of subreddits with their average post score and total post count.
+
+**Pseudo-SQL:**
+```sql
+SELECT p.SubredditID,
+       COUNT(DISTINCT p.PostID)       AS TotalPosts,
+       SUM(pv.VoteValue)              AS TotalVotes,
+       SUM(pv.VoteValue) / COUNT(DISTINCT p.PostID) AS AvgPostScore
+FROM Post p
+JOIN PostVote pv ON p.PostID = pv.PostID
+WHERE p.IsRemoved = FALSE
+GROUP BY p.SubredditID
+ORDER BY AvgPostScore DESC
+LIMIT 10;
+```
+
+---
+
+#### Use Case 10: Find users who are active members of multiple subreddits but have never made a post
+
+**Why this matters:**
+Lurkers — users who join communities but never contribute content — represent a large but often overlooked segment of the user base. Understanding their scale helps product teams design engagement features (e.g., prompts to post, onboarding nudges) to convert passive members into contributors.
+
+**Strategic Insight:**
+This query gives the analyst a count and list of users who consume but never create. It directly informs growth and engagement strategy: if the lurker-to-contributor ratio is high, the platform may need to lower barriers to posting.
+
+**Query Objective:**
+Retrieve users who are members of two or more subreddits but have posted zero times on the platform.
+
+**Assumptions:**
+- Membership records with `IsActive = TRUE` represent current memberships.
+- A user with no rows in `Post` has never posted.
+
+**Expected Output:**
+A list of user IDs and their membership count, filtered to those with no posts.
+
+**Pseudo-SQL:**
+```sql
+SELECT m.UserID,
+       COUNT(m.SubredditID) AS SubredditCount
+FROM Membership m
+WHERE m.IsActive = TRUE
+  AND m.UserID NOT IN (
+      SELECT DISTINCT AuthorUserID
+      FROM Post
+  )
+GROUP BY m.UserID
+HAVING COUNT(m.SubredditID) >= 2
+ORDER BY SubredditCount DESC;
+```
+
+---
+
+#### Use Case 11: Rank the top commenters on the most-voted post in each subreddit
+
+**Why this matters:**
+On a platform like Reddit, viral posts drive outsized engagement. Identifying who is most active in the comment section of a subreddit's top post can help surface power users, detect spam patterns, or reward community contributors.
+
+**Strategic Insight:**
+This query combines a nested subquery (to find each subreddit's top post by vote score) with a join to comments and an aggregation on comment count. It answers: "In each subreddit's best-performing post, who is driving the conversation?"
+
+**Query Objective:**
+For each subreddit, find the single post with the highest vote score, then rank commenters on that post by number of comments submitted.
+
+**Assumptions:**
+- The top post per subreddit is determined by `SUM(VoteValue)` from `PostVote`.
+- Ties in top post score are broken by `PostID` (arbitrary tiebreak).
+
+**Expected Output:**
+SubredditID, top PostID, commenter UserID, and their comment count on that post.
+
+**Pseudo-SQL:**
+```sql
+SELECT c.PostID,
+       p.SubredditID,
+       c.AuthorUserID,
+       COUNT(c.CommentID) AS CommentCount
+FROM Comment c
+JOIN Post p ON c.PostID = p.PostID
+WHERE c.PostID IN (
+    SELECT PostID
+    FROM (
+        SELECT pv.PostID,
+               po.SubredditID,
+               SUM(pv.VoteValue) AS Score,
+               RANK() OVER (PARTITION BY po.SubredditID ORDER BY SUM(pv.VoteValue) DESC) AS rnk
+        FROM PostVote pv
+        JOIN Post po ON pv.PostID = po.PostID
+        GROUP BY pv.PostID, po.SubredditID
+    ) ranked
+    WHERE rnk = 1
+)
+GROUP BY c.PostID, p.SubredditID, c.AuthorUserID
+ORDER BY p.SubredditID, CommentCount DESC;
+```
+
+---
+
+#### Use Case 12: Calculate the report resolution rate per subreddit moderator
+
+**Why this matters:**
+Moderation effectiveness is a key platform health metric. A moderation team that leaves reports unresolved creates a poor user experience and may allow policy violations to persist. Tracking how many open reports exist relative to resolved ones per moderator reveals accountability gaps.
+
+**Strategic Insight:**
+This query joins moderation actions, post reports, and membership data to surface per-moderator resolution behavior. Platform administrators can use this to identify overloaded or underperforming moderators and allocate resources accordingly.
+
+**Query Objective:**
+For each moderator in each subreddit, count the number of post reports that are `Resolved` versus `Open`, producing a resolution rate.
+
+**Assumptions:**
+- Moderators are identified by `Role = 'Moderator'` in `Membership`.
+- Reports are scoped to posts within the moderator's subreddit via `Post.SubredditID`.
+- A report is attributed to the subreddit's moderators collectively (not per-action).
+
+**Expected Output:**
+SubredditID, ModeratorUserID, total open reports, total resolved reports, and resolution rate as a percentage.
+
+**Pseudo-SQL:**
+```sql
+SELECT m.SubredditID,
+       m.UserID AS ModeratorUserID,
+       COUNT(CASE WHEN pr.Status = 'Open'     THEN 1 END) AS OpenReports,
+       COUNT(CASE WHEN pr.Status = 'Resolved' THEN 1 END) AS ResolvedReports,
+       ROUND(
+           100.0 * COUNT(CASE WHEN pr.Status = 'Resolved' THEN 1 END)
+           / NULLIF(COUNT(pr.ReportID), 0),
+           2
+       ) AS ResolutionRatePct
+FROM Membership m
+JOIN Post p          ON p.SubredditID = m.SubredditID
+JOIN PostReport pr   ON pr.PostID     = p.PostID
+WHERE m.Role = 'Moderator'
+  AND m.IsActive = TRUE
+GROUP BY m.SubredditID, m.UserID
+ORDER BY m.SubredditID, ResolutionRatePct DESC;
+```
+
+---
+
+#### Use Case 13: Detect users whose karma score has grown the most in the last 30 days
+
+**Why this matters:**
+Sudden spikes in karma can signal a breakout user — someone who has recently posted viral content and is becoming a high-value community contributor. It can also flag suspicious activity, such as vote manipulation or coordinated upvoting, which is worth further investigation.
+
+**Strategic Insight:**
+This query uses aggregated vote data filtered by recency to compute karma growth per user. It surfaces both opportunity (new rising contributors to spotlight) and risk (abnormal activity patterns). Growth analytics like this are standard in any platform's data analyst toolkit.
+
+**Query Objective:**
+Compute each user's total karma earned from post and comment votes in the past 30 days and rank the top gainers.
+
+**Assumptions:**
+- Karma from posts = `SUM(VoteValue)` on `PostVote` for posts authored by the user.
+- Karma from comments = `SUM(VoteValue)` on `CommentVote` for comments authored by the user.
+- Only votes cast within the last 30 days are included.
+
+**Expected Output:**
+UserID, karma from posts, karma from comments, and total karma earned in the window, sorted by highest growth.
+
+**Pseudo-SQL:**
+```sql
+SELECT u.UserID,
+       COALESCE(post_karma.PostKarma, 0)       AS PostKarma,
+       COALESCE(comment_karma.CommentKarma, 0) AS CommentKarma,
+       COALESCE(post_karma.PostKarma, 0)
+         + COALESCE(comment_karma.CommentKarma, 0) AS TotalKarmaGained
+FROM User u
+LEFT JOIN (
+    SELECT p.AuthorUserID,
+           SUM(pv.VoteValue) AS PostKarma
+    FROM PostVote pv
+    JOIN Post p ON pv.PostID = p.PostID
+    WHERE pv.CreatedAt >= CURRENT_DATE - INTERVAL '30 days'
+    GROUP BY p.AuthorUserID
+) post_karma ON u.UserID = post_karma.AuthorUserID
+LEFT JOIN (
+    SELECT c.AuthorUserID,
+           SUM(cv.VoteValue) AS CommentKarma
+    FROM CommentVote cv
+    JOIN Comment c ON cv.CommentID = c.CommentID
+    WHERE cv.CreatedAt >= CURRENT_DATE - INTERVAL '30 days'
+    GROUP BY c.AuthorUserID
+) comment_karma ON u.UserID = comment_karma.AuthorUserID
+WHERE COALESCE(post_karma.PostKarma, 0)
+      + COALESCE(comment_karma.CommentKarma, 0) > 0
+ORDER BY TotalKarmaGained DESC
+LIMIT 25;
+```
+
+---
+
+### 13.3 Summary
+
+These five queries demonstrate how aggregations, joins, and nested subqueries can be combined to produce analyst-grade insights from the Reddit-style platform database. Each query addresses a distinct strategic concern: community quality, user engagement patterns, viral content attribution, moderation effectiveness, and growth signals. Together they form a foundational analytics layer that would support data-driven decision-making across product, community, and trust-and-safety teams.
