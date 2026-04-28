@@ -993,3 +993,5 @@ LIMIT 25;
 ### 13.3 Summary
 
 These five queries demonstrate how aggregations, joins, and nested subqueries can be combined to produce analyst-grade insights from the Reddit-style platform database. Each query addresses a distinct strategic concern: community quality, user engagement patterns, viral content attribution, moderation effectiveness, and growth signals. Together they form a foundational analytics layer that would support data-driven decision-making across product, community, and trust-and-safety teams.
+
+### Security and Access Control Research
