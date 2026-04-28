@@ -1008,7 +1008,7 @@ This section explores two real-world tools used to implement and enforce securit
 #### Tool 1: HashiCorp Vault
  
 **What it does:**  
-HashiCorp Vault is an open-source secrets management platform that centralizes the storage, access, and lifecycle management of sensitive credentials such as database passwords, API keys, and tokens. Rather than hardcoding database credentials into application configuration files, Vault acts as a broker — applications authenticate with Vault and receive short-lived, dynamically generated credentials to connect to the database. This eliminates the need for static, long-lived secrets that can be leaked or stolen.
+HashiCorp Vault is an open-source secrets management platform that centralizes the storage, access, and lifecycle management of sensitive credentials such as database passwords, API keys, and tokens. Rather than hardcoding database credentials into application configuration files, Vault acts as a broker where applications authenticate with Vault and receive short-lived, dynamically generated credentials to connect to the database. This eliminates the need for static, long-lived secrets that can be leaked or stolen.
  
 **Supported databases:**  
 Vault's database secrets engine supports PostgreSQL, MySQL, MariaDB, MSSQL, Oracle, MongoDB, and others. It integrates natively with these systems to create and revoke temporary credentials on demand.
@@ -1017,7 +1017,7 @@ Vault's database secrets engine supports PostgreSQL, MySQL, MariaDB, MSSQL, Orac
 - **Dynamic secrets:** Vault generates unique, time-limited database credentials per request rather than reusing static passwords. Credentials are automatically revoked after the lease expires.
 - **Secrets encryption:** All secrets stored in Vault are encrypted at rest using AES-256-GCM. Vault can also act as an encryption-as-a-service layer for application data.
 - **Role-based access control (RBAC):** Vault policies define which applications or identities are allowed to request which secrets. Access is scoped to specific paths and operations.
-- **Audit logging:** Every request to Vault — read, write, or revoke — is written to a structured audit log, creating a full trail of who accessed what credentials and when.
+- **Audit logging:** Every request to Vault: read, write, or revoke is written to a structured audit log, creating a full trail of who accessed what credentials and when.
 - **Multi-factor authentication (MFA):** Vault supports MFA via TOTP, Okta, and other identity providers when authenticating operators.
 - **Identity-based access:** Vault integrates with identity providers like AWS IAM, Kubernetes, LDAP, and GitHub for seamless, federated authentication.
 **Notable use cases and industries:**  
@@ -1039,7 +1039,7 @@ MySQL, MariaDB, and PostgreSQL on Amazon RDS and Amazon Aurora. Standard databas
 - **Encryption in transit:** RDS enforces SSL/TLS on all connections when IAM authentication is enabled, ensuring credentials and data are protected in transit.
 - **Encryption at rest:** RDS supports AES-256 encryption at rest for all storage volumes using AWS KMS (Key Management Service), with key rotation managed by the platform.
 - **VPC isolation and security groups:** RDS instances can be deployed inside a Virtual Private Cloud with fine-grained security group rules controlling which IP addresses and services can reach the database port. This functions as IP whitelisting at the network level.
-- **AWS CloudTrail audit logging:** All IAM API calls — including token generation requests — are logged in CloudTrail, providing a full audit record of who attempted to authenticate, from where, and when. RDS also supports enhanced monitoring and database activity streams for query-level auditing on Aurora.
+- **AWS CloudTrail audit logging:** All IAM API calls such as token generation requests get logged in CloudTrail, providing a full audit record of who attempted to authenticate, from where, and when. RDS also supports enhanced monitoring and database activity streams for query-level auditing on Aurora.
 - **Secrets Manager integration:** AWS Secrets Manager can store and automatically rotate RDS credentials on a configurable schedule, acting as a managed alternative to HashiCorp Vault for teams already on AWS.
 **Notable use cases and industries:**  
 IAM authentication for RDS is standard practice in cloud-native applications deployed on AWS. It is widely used in fintech, healthcare SaaS, and e-commerce platforms where automated rotation of database credentials is required for compliance. Startups and mid-market companies frequently adopt this approach because it removes the operational burden of managing a separate secrets server.
@@ -1051,7 +1051,7 @@ IAM authentication for RDS is standard practice in cloud-native applications dep
 The following reflects how the tools and practices above would be applied to the Reddit-style platform database designed throughout this project.
  
 **Managing user access and permissions:**  
-The database would use a role-based permission model with three distinct database roles: `app_readonly` (for analytics queries), `app_readwrite` (for the core application backend handling posts, votes, and comments), and `app_admin` (for schema migrations and moderation tooling). No application service would connect as the database superuser. Each role would be granted only the minimum privileges needed for its function — for example, `app_readonly` would receive `SELECT` on reporting and analytics tables but no write access.
+The database would use a role-based permission model with three distinct database roles: `app_readonly` (for analytics queries), `app_readwrite` (for the core application backend handling posts, votes, and comments), and `app_admin` (for schema migrations and moderation tooling). No application service would connect as the database superuser. Each role would be granted only the minimum privileges needed for its function: for example, `app_readonly` would receive `SELECT` on reporting and analytics tables but no write access.
  
 If deployed on AWS, IAM database authentication would replace static passwords for all application connections. Each service (e.g., the post service, the moderation service) would assume a dedicated IAM role with permission to generate tokens only for its corresponding database user, ensuring that a compromised service cannot impersonate another.
  
@@ -1062,7 +1062,7 @@ The `User` table contains email addresses and password hashes, both of which req
 For a production deployment, HashiCorp Vault or AWS Secrets Manager would be used to manage and rotate database credentials rather than storing them in environment variables or `.env` files. Vault's dynamic secrets engine would be the preferred approach in a multi-cloud or Kubernetes environment. In an AWS-only deployment, Secrets Manager with automatic rotation is the simpler path. Either way, no static database password would be committed to source control or embedded in a container image.
  
 **Auditing and logging access to sensitive tables:**  
-PostgreSQL's `pgaudit` extension would be enabled to log all DDL operations and DML operations against sensitive tables such as `User`, `SubredditBan`, and `ModerationAction`. These logs would be shipped to a centralized log aggregator (e.g., AWS CloudWatch Logs or a self-hosted ELK stack) where they can be queried for anomalies — for example, a sudden spike in `SELECT` queries against the `User` table from an unexpected service identity. AWS CloudTrail would cover the IAM layer, capturing every credential request alongside the source IP and requesting identity.
+PostgreSQL's `pgaudit` extension would be enabled to log all DDL operations and DML operations against sensitive tables such as `User`, `SubredditBan`, and `ModerationAction`. These logs would be shipped to a centralized log aggregator (e.g., AWS CloudWatch Logs or a self-hosted ELK stack) where they can be queried for anomalies. For example, a sudden spike in `SELECT` queries against the `User` table from an unexpected service identity. AWS CloudTrail would cover the IAM layer, capturing every credential request alongside the source IP and requesting identity.
  
 **Follow-up questions and open concerns:**
 - PostgreSQL's `pgaudit` generates high log volume in active systems. How do teams typically filter audit logs to retain signal without overwhelming storage?
