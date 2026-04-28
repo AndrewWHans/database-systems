@@ -1068,4 +1068,4 @@ PostgreSQL's `pgaudit` extension would be enabled to log all DDL operations and 
 - PostgreSQL's `pgaudit` generates high log volume in active systems. How do teams typically filter audit logs to retain signal without overwhelming storage?
 - For a database of this size (social platform with potentially millions of rows in `PostVote` and `CommentVote`), would column-level encryption on PII fields meaningfully degrade query performance on indexed columns like `Email`?
 - HashiCorp Vault requires its own high-availability infrastructure. In a student or small-team context, is AWS Secrets Manager a practical substitute, or does it sacrifice meaningful security properties?
-- How would row-level security (RLS) in PostgreSQL integrate with the existing role model — for example, ensuring that a moderator can only view `ModerationAction` records tied to their own subreddits?
+- How would row-level security (RLS) in PostgreSQL integrate with the existing role model. For example, ensuring that a moderator can only view `ModerationAction` records tied to their own subreddits?
