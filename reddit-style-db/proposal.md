@@ -235,7 +235,7 @@ The design emphasizes:
 
 The final ER diagram contains **16 entities**, satisfying the project requirement of 10–20 entities and demonstrating sufficient structural complexity for a full-scale platform model.
 
-![ER Diagram](Project Phase 1 ER Diagram.drawio.png)
+![ER Diagram](Project_Phase_1_ER_Diagram_drawio.png)
 
 ---
 
