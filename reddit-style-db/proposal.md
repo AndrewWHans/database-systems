@@ -234,7 +234,7 @@ The design emphasizes:
 - Scalability and extensibility
 
 The final ER diagram contains **16 entities**, satisfying the project requirement of 10–20 entities and demonstrating sufficient structural complexity for a full-scale platform model.
-
+![ER Diagram](Project%20Phase%201%20ER%20Diagram.drawio.png)
 ---
 
 ### 10.2 Entity Justification
